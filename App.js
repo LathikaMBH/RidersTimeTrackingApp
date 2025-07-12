@@ -1,22 +1,24 @@
-// App.js
 import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, Text, TouchableOpacity, Image, Linking, Alert} from 'react-native';
+import {View, StyleSheet, Text, TouchableOpacity, Image, Linking, Dimensions} from 'react-native';
+
+// Get screen dimensions for responsive design
+const screenWidth = Dimensions.get('window').width;
+const isWeb = screenWidth > 768; // Detect if running on web
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [finlandTime, setFinlandTime] = useState('');
+  const [status, setStatus] = useState('');
 
+  // Phone numbers for WhatsApp (replace with real numbers)
   const registeredPhones = [
-    '358444673113',  // Finland number example
-    '358417426720',  // Another Finland number
-    // Add more numbers as needed
+    '358123456789',    // Finland number (replace with real)
+    '358987654321',    // Another Finland number (replace with real)
   ];
 
-  // Update Finland time every second
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      // Finland is in Europe/Helsinki timezone
       const finlandTimeString = now.toLocaleString('en-US', {
         timeZone: 'Europe/Helsinki',
         year: 'numeric',
@@ -25,61 +27,83 @@ const App = () => {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: false // 24-hour format
+        hour12: false
       });
       setFinlandTime(finlandTimeString);
     };
 
-    updateTime(); // Initial update
-    const interval = setInterval(updateTime, 1000); // Update every second
-
-    return () => clearInterval(interval); // Cleanup
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-   // Function to send WhatsApp message
+  // WhatsApp function (web-compatible)
   const sendWhatsAppMessage = async (phoneNumber, message) => {
     try {
-      const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
-      const supported = await Linking.canOpenURL(url);
+      const cleanPhone = phoneNumber.replace(/[+\s-]/g, '');
+      console.log(`Sending to: ${cleanPhone}`);
+      console.log(`Message: ${message}`);
       
-      if (supported) {
-        await Linking.openURL(url);
+      if (isWeb) {
+        // For web, use WhatsApp Web
+        const webURL = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        window.open(webURL, '_blank');
+        return true;
       } else {
-        Alert.alert('Error', 'WhatsApp is not installed on this device');
+        // For mobile, use app URL
+        const whatsappURL = `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+        const canOpenWhatsApp = await Linking.canOpenURL(whatsappURL);
+        
+        if (canOpenWhatsApp) {
+          await Linking.openURL(whatsappURL);
+          return true;
+        } else {
+          // Fallback to web WhatsApp
+          const webURL = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+          await Linking.openURL(webURL);
+          return true;
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to open WhatsApp');
-      console.log('WhatsApp error:', error);
+      console.error('WhatsApp error:', error);
+      return false;
     }
   };
 
-  // Function to send message to all registered phones
-  const sendToAllPhones = (message) => {
-    registeredPhones.forEach((phoneNumber, index) => {
-      setTimeout(() => {
-        sendWhatsAppMessage(phoneNumber, message);
-      }, index * 1000); // 1 second delay between each message
-    });
+  // Send to first phone (for testing)
+  const sendToFirstPhone = async (message) => {
+    if (registeredPhones.length > 0) {
+      const success = await sendWhatsAppMessage(registeredPhones[0], message);
+      if (success) {
+        setStatus('✅ Message sent!');
+      } else {
+        setStatus('❌ Failed to send');
+      }
+    } else {
+      setStatus('❌ No phones registered');
+    }
+    setTimeout(() => setStatus(''), 3000);
   };
 
-  // Handle Start button press
+  // Handle Start button
   const handleStartPress = () => {
-    const message = `🚀 STARTED at ${finlandTime} (Finland Time)`;
-    sendToAllPhones(message);
-    Alert.alert('Start', 'Sending start notifications to registered phones');
+    const message = `🚀 STARTED at ${finlandTime}`;
+    console.log('Start button pressed');
+    sendToFirstPhone(message);
   };
 
-  // Handle End button press
+  // Handle End button
   const handleEndPress = () => {
-    const message = `🏁 ENDED at ${finlandTime} (Finland Time)`;
-    sendToAllPhones(message);
-    Alert.alert('End', 'Sending end notifications to registered phones');
+    const message = `🏁 ENDED at ${finlandTime}`;
+    console.log('End button pressed');
+    sendToFirstPhone(message);
   };
 
-  // Home page
+  // Home page with new design
   if (currentPage === 'home') {
     return (
       <View style={styles.container}>
+        {/* Header with driver image */}
         <View style={styles.headerSection}>
           <Image 
             source={require('./assets/driverImage.png')}
@@ -87,40 +111,43 @@ const App = () => {
           />
         </View>
         
+        {/* Main content with centered buttons */}
         <View style={styles.bodySection}>
           <TouchableOpacity 
-            style={styles.bigButton}
-            onPress={() => setCurrentPage('second')} // ✅ Use setState, not navigation
+            style={[styles.mainButton, styles.riderButton]}
+            onPress={() => setCurrentPage('second')}
           >
-            <Text style={styles.buttonText}>I am a Rider</Text>
+            <Text style={styles.mainButtonText}>I am a Rider</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.smallButton}>
-            <Text style={styles.buttonText}>Administrator Login</Text>
+          <TouchableOpacity 
+            style={[styles.mainButton, styles.adminButton]}
+            onPress={() => setCurrentPage('admin')}
+          >
+            <Text style={styles.mainButtonText}>Administrator Login</Text>
           </TouchableOpacity>
         </View>
         
+        {/* Footer */}
         <View style={styles.footerSection}>
-          <Text>Footer</Text>
+          <Text style={styles.footerText}>Footer</Text>
         </View>
       </View>
     );
   }
 
-  // Second page
-  // Second page with side-by-side buttons
-if (currentPage === 'second') {
-  return (
-    <View style={styles.secondPage}>
-      <View style={styles.centerContent}>
-        <Text style={styles.title}>Welcome to Second Page!</Text>
-        
-        <View style={styles.timeContainer}>
-          <Text style={styles.timeLabel}>🇫🇮 Finland Current Time:</Text>
-          <Text style={styles.timeDisplay}>{finlandTime}</Text>
-        </View>
-        
-        {/* WhatsApp notification buttons */}
+  // Rider page (your original second page)
+  if (currentPage === 'second') {
+    return (
+      <View style={styles.secondPage}>
+        <View style={styles.centerContent}>
+          <Text style={styles.title}>Rider Dashboard</Text>
+          
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeLabel}>🇫🇮 Finland Current Time:</Text>
+            <Text style={styles.timeDisplay}>{finlandTime}</Text>
+          </View>
+          
           <View style={styles.centeredButtonsContainer}>
             <TouchableOpacity 
               style={[styles.actionButton, styles.startButton]}
@@ -137,34 +164,44 @@ if (currentPage === 'second') {
             </TouchableOpacity>
           </View>
           
-          {/* Show registered phones count */}
+          {/* Status display */}
+          {status ? (
+            <Text style={styles.statusText}>{status}</Text>
+          ) : null}
+          
           <Text style={styles.phoneCountText}>
             📞 {registeredPhones.length} phones registered
           </Text>
         </View>
-      
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => setCurrentPage('home')}
-      >
-        <Text style={styles.buttonText}>← Go Back Home</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-
-  // Third page (optional)
-  if (currentPage === 'third') {
-    return (
-      <View style={styles.thirdPage}>
-        <Text style={styles.title}>This is Third Page!</Text>
         
         <TouchableOpacity 
-          style={styles.backButton}
+          style={styles.bottomLeftButton}
           onPress={() => setCurrentPage('home')}
         >
-          <Text style={styles.buttonText}>Go Back Home</Text>
+          <Text style={styles.buttonText}>← Go Back Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Admin page (new)
+  if (currentPage === 'admin') {
+    return (
+      <View style={styles.adminPage}>
+        <View style={styles.centerContent}>
+          <Text style={styles.title}>Administrator Panel</Text>
+          
+          <View style={styles.adminContainer}>
+            <Text style={styles.adminText}>Admin Dashboard Coming Soon...</Text>
+            <Text style={styles.subText}>Manage drivers, view reports, and more.</Text>
+          </View>
+        </View>
+        
+        <TouchableOpacity 
+          style={styles.bottomLeftButton}
+          onPress={() => setCurrentPage('home')}
+        >
+          <Text style={styles.buttonText}>← Go Back Home</Text>
         </TouchableOpacity>
       </View>
     );
@@ -174,60 +211,85 @@ if (currentPage === 'second') {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
   },
+  
+  // Header section
   headerSection: {
-    height: 300,
+    width: '100%',
+    height: isWeb ? 350 : 280,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+    display: 'flex',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+    backgroundColor: '#f0f0f0',
+    flex: 1,
   },
+  
+  // Body section with buttons
   bodySection: {
-    backgroundColor: 'white',
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: isWeb ? 60 : 20,
+    paddingVertical: 40,
+    backgroundColor: '#fff',
   },
-  footerSection: {
-    backgroundColor: 'powderblue',
-    flex: 0.20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bigButton: {
-    backgroundColor: '#007AFF',
-    width: '80%',
+  
+  // Main buttons (I am a Rider, Administrator Login)
+  mainButton: {
+    width: isWeb ? '60%' : '90%',
+    maxWidth: 500,
     height: 60,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  smallButton: {
-    backgroundColor: '#34C759',
-    width: '60%',
-    height: 45,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+  riderButton: {
+    backgroundColor: '#007AFF',
   },
-  buttonText: {
+  adminButton: {
+    backgroundColor: '#4CAF50',
+  },
+  mainButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: isWeb ? 20 : 18,
     fontWeight: 'bold',
   },
   
-  // Second page
-  secondPage: {
-    flex: 1,
+  // Footer
+  footerSection: {
+    height: 80,
+    backgroundColor: '#B0E0E6',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'powderblue',
-    padding: 20,
   },
-  // Side-by-side buttons container
+  footerText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  
+  // Second page (Rider dashboard)
+  secondPage: {
+    flex: 1,
+    backgroundColor: 'lightblue',
+  },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
@@ -235,7 +297,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: isWeb ? 28 : 24,
     fontWeight: 'bold',
     marginBottom: 40,
     textAlign: 'center',
@@ -251,8 +313,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 8,
-    width: '95%',
-    marginBottom: 40,           // More space below time
+    width: isWeb ? '60%' : '95%',
+    maxWidth: 600,
+    marginBottom: 40,
   },
   timeLabel: {
     fontSize: 18,
@@ -261,72 +324,59 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   timeDisplay: {
-    fontSize: 36,
+    fontSize: isWeb ? 42 : 36,
     fontWeight: 'bold',
     color: '#007AFF',
     textAlign: 'center',
   },
-  
-  // Centered buttons container
   centeredButtonsContainer: {
-    flexDirection: 'row',           // Side by side
-    justifyContent: 'center',       // Center horizontally
-    alignItems: 'center',           // Center vertically
-    width: '100%',                  // Full width of parent
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
   },
-  
-  // Common button style
   actionButton: {
-    width: 80,                     // Fixed width for consistent size
+    width: isWeb ? 140 : 120,
     height: 50,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 15,           // Space between buttons
+    marginHorizontal: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
-  
-  // Start button (left)
   startButton: {
-    backgroundColor: '#4CAF50',     // Green
+    backgroundColor: '#25D366',
   },
-  
-  // End button (right)
   endButton: {
-    backgroundColor: '#F44336',     // Red
+    backgroundColor: '#F44336',
   },
-  
-  // Button text
   actionButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  
-  
-  // Third page
-  thirdPage: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'lightcoral',
-    padding: 20,
-  },
-  
-  title: {
-    fontSize: 24,
+  statusText: {
+    fontSize: 16,
+    color: '#4CAF50',
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginTop: 15,
     textAlign: 'center',
   },
-  backButton: {
-    position: 'absolute',       // Fixed positioning
-    bottom: 40,                 // 40px from bottom
-    left: 20,                   // 20px from left
+  phoneCountText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  bottomLeftButton: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
     backgroundColor: '#FF6B6B',
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -337,15 +387,43 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  timeDisplay: {
-    fontSize: 32,              // Much bigger (was 20)
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#007AFF',
+  },
+  
+  // Admin page
+  adminPage: {
+    flex: 1,
+    backgroundColor: 'lightgreen',
+  },
+  adminContainer: {
+    backgroundColor: 'white',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+    width: isWeb ? '60%' : '95%',
+    maxWidth: 600,
+  },
+  adminText: {
+    fontSize: isWeb ? 24 : 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
     textAlign: 'center',
   },
-  timeLabel: {
+  subText: {
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-  }
+    lineHeight: 22,
+  },
 });
 
 export default App;
